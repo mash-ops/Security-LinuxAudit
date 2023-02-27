@@ -1,0 +1,80 @@
+## Monitoring the following: Process creation (execve), passwd/shadow/sshd modifications, webserver modifications, socket bind, socket connect
+## Detection of any process being created, critical system files modified and uses network auditing for improved shell/reverse shell/lateral movement visibility
+
+# Remove any existing rules
+-D
+
+# Set buffer and ignore errors
+-b 8192
+-f 1
+-e 1
+-i
+
+# Files to be monitored
+-w /etc/group -p wa -k wr_etc_main
+-w /etc/passwd -p wa -k wr_etc_main
+-w /etc/shadow -p wa -k wr_etc_main
+-w /etc/sudoers -p wa -k wr_etc_main
+-w /etc/pam.conf -p wa -k wr_etc_main
+-w /etc/pam.d/ -p wa -k wr_etc_main
+-w /etc/ssh/sshd_config -p wa -k wr_etc_main
+
+# Watch Executables that are whitelisted
+-w /bin/bash -p wa -k wr_exe
+-w /usr/lib/systemd/systemd -p wa -k wr_exe
+-w /opt/splunkforwarder/bin/splunkd -p wa -k wr_exe
+-w /usr/lib/systemd/systemd-logind -p wa -k wr_exe
+-w /usr/bin/nice -p wa -k wr_exe
+-w /usr/bin/ionice -p wa -k wr_exe
+-w /usr/sbin/chronyd -p wa -k wr_exe
+
+# Modifications to audit configuration that occur while the audit collection functions are operating
+-w /etc/audit/ -p wa -k wr_audit_config
+-w /etc/libaudit.conf -p wa -k wr_audit_config
+-w /etc/audisp/ -p wa -k wr_audit_spconfig
+
+# Monitor for use of audit management tools
+-w /sbin/auditctl -p x -k wr_audit_tools
+-w /sbin/auditd -p x -k wr_audit_tools
+
+# Exclude SplunkForwarder
+-a exit,never -F arch=b32 -S open -F dir=/opt/splunkforwarder/ -F auid=4294967295 -F uid=splunk -F exe=/opt/splunkforwarder/bin/splunkd
+-a exit,never -F arch=b64 -S open -F dir=/opt/splunkforwarder/ -F auid=4294967295 -F uid=splunk -F exe=/opt/splunkforwarder/bin/splunkd
+-a exit,never -F arch=b32 -S connect -F auid=4294967295 -F uid=splunk -F exe=/opt/splunkforwarder/bin/splunkd
+-a exit,never -F arch=b64 -S connect -F auid=4294967295 -F uid=splunk -F exe=/opt/splunkforwarder/bin/splunkd
+
+# Exclude system relevant actions or stuff not needed
+-a exit,never -F arch=b32 -S execve -F uid=root -F auid=4294967295 -F exe=/usr/bin/nice
+-a exit,never -F arch=b64 -S execve -F uid=root -F auid=4294967295 -F exe=/usr/bin/nice
+-a exit,never -F arch=b32 -S execve -F uid=root -F auid=4294967295 -F exe=/usr/bin/ionice
+-a exit,never -F arch=b64 -S execve -F uid=root -F auid=4294967295 -F exe=/usr/bin/ionice
+-a exit,never -F arch=b32 -S 11
+-a exit,never -F arch=b64 -S 11
+-a always,exclude -F msgtype=USER_START
+-a always,exclude -F msgtype=USER_END
+-a always,exclude -F msgtype=USER_ACCT
+-a always,exclude -F msgtype=PROCTITLE
+-a always,exclude -F msgtype=CRED_DISP
+-a always,exclude -F msgtype=CRYPTO_SESSION
+-a always,exclude -F msgtype=CRED_REFR
+-a always,exclude -F msgtype=CRED_ACQ
+-a always,exclude -F msgtype=CRYPTO_KEY_USER
+-a always,exclude -F msgtype=BPRM_FCAPS
+
+# Log Executed Commands
+-a exit,always -F arch=b32 -S execve -F success=1
+-a exit,always -F arch=b64 -S execve -F success=1
+
+# Webserver Directories, you NEED TO modify this if necessary (add paths to webservers htdocs)
+-a exit,never -F arch=b32 -S 5,82,83,84,86,87,88,133,258,263,264,265,266,316
+-a exit,never -F arch=b64 -S 5,82,83,84,86,87,88,133,258,263,264,265,266,316
+-w /var/www/ -p w -k wr_www -F a1&0100 -F success=1 -F auid=4294967295 -F uid<1000
+-w /app/ -p w -k wr_www -F a1&0100 -F success=1 -F auid=4294967295 -F uid<1000
+-w /opt/ -p w -k wr_www -F a1&0100 -F success=1 -F auid=4294967295 -F uid<1000
+-w /srv/ -p w -k wr_www -F a1&0100 -F success=1 -F auid=4294967295 -F uid<1000
+-w /usr/local/www/ -p w -k wr_www -F a1&0100 -F success=1 -F auid=4294967295 -F uid<1000
+-w /tmp/ -p w -k wr_www -F a1&0100 -F success=1 -F auid=4294967295 -F uid<1000
+-w /var/tmp/ -p w -k wr_www -F a1&0100 -F success=1 -F auid=4294967295 -F uid<1000
+-w /usr/local/ -p w -k wr_www -F a1&0100 -F success=1 -F auid=4294967295 -F uid<1000
+-w /usr/share/ -p w -k wr_www -F a1&0100 -F success=1 -F auid=4294967295 -F uid<1000
+-w /var/lib/www/  -p w -k wr_www -F a1&0100 -F success=1 -F auid=4294967295 -F uid<1000
